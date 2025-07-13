@@ -35,6 +35,7 @@ void db_close(Table* table) {
     delete table;
 }
 
+// Finds the position of a key in a leaf node
 Cursor* leaf_node_find(Table* table, uint32_t page_num, uint32_t key) {
     void* node = get_page(table->pager, page_num);
     uint32_t num_cells = *leaf_node_num_cells(node);
@@ -43,6 +44,7 @@ Cursor* leaf_node_find(Table* table, uint32_t page_num, uint32_t key) {
     cursor->table = table;
     cursor->page_num = page_num;
 
+    // Binary search
     uint32_t min_index = 0;
     uint32_t one_past_max_index = num_cells;
     while (one_past_max_index != min_index) {
@@ -64,27 +66,36 @@ Cursor* leaf_node_find(Table* table, uint32_t page_num, uint32_t key) {
 }
 
 
+// Finds the correct leaf node for a key and returns a cursor to it.
+// Crucially, this now sets the parent pointer on each node it traverses.
 Cursor* table_find(Table* table, uint32_t key) {
     uint32_t root_page_num = table->root_page_num;
     void* root_node = get_page(table->pager, root_page_num);
 
     if (get_node_type(root_node) == NODE_LEAF) {
         return leaf_node_find(table, root_page_num, key);
-    } else {
-        void* node = root_node;
-        uint32_t current_page_num = root_page_num;
-        while (get_node_type(node) == NODE_INTERNAL) {
-            uint32_t child_index = internal_node_find_child(node, key);
-            uint32_t child_page_num = *internal_node_child(node, child_index);
-            current_page_num = child_page_num;
-            node = get_page(table->pager, current_page_num);
-        }
-        return leaf_node_find(table, current_page_num, key);
+    } 
+    
+    // It's an internal node, traverse down to the correct leaf
+    uint32_t current_page_num = root_page_num;
+    void* current_node = root_node;
+    while(get_node_type(current_node) == NODE_INTERNAL) {
+        uint32_t child_index = internal_node_find_child(current_node, key);
+        uint32_t child_page_num = *internal_node_child(current_node, child_index);
+        
+        // Before we move to the child, set its parent pointer
+        void* child_node = get_page(table->pager, child_page_num);
+        *node_parent(child_node) = current_page_num;
+
+        current_page_num = child_page_num;
+        current_node = get_page(table->pager, current_page_num);
     }
+    return leaf_node_find(table, current_page_num, key);
 }
 
 Cursor* table_start(Table* table) {
-    Cursor* cursor = table_find(table, 0);
+    // A "select" starts a scan from the beginning, which means finding key 0.
+    Cursor* cursor = table_find(table, 0); 
     void* node = get_page(table->pager, cursor->page_num);
     uint32_t num_cells = *leaf_node_num_cells(node);
     cursor->end_of_table = (num_cells == 0);
@@ -100,6 +111,9 @@ void cursor_advance(Cursor* cursor) {
     void* node = get_page(cursor->table->pager, cursor->page_num);
     cursor->cell_num += 1;
     if (cursor->cell_num >= (*leaf_node_num_cells(node))) {
+        // We have reached the end of this leaf node.
+        // For a true B+ tree, we would follow the next_leaf pointer here.
+        // For now, we just end the table scan.
         cursor->end_of_table = true;
     }
 }

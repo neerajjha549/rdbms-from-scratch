@@ -1,5 +1,4 @@
-# rdbms-from-scratch
-ToyDB: A Simple B-Tree Based Database from Scratch in C++
+# rdbms-from-scratch - ToyDB
 Welcome to ToyDB! This is an educational project to build a simple, persistent, single-table database from the ground up in C++. The goal is to demystify how databases work by implementing the core components, starting with the storage engine.
 
 This project is inspired by and follows the excellent tutorial at cstack.github.io/db_tutorial/.
@@ -14,6 +13,8 @@ B-Tree for Indexing: Data is stored and indexed in a B-Tree structure, allowing 
 Splitting the root node.
 
 Splitting leaf nodes and updating the parent internal node.
+
+Splitting internal nodes recursively up to the root.
 
 Basic Operations:
 
@@ -132,9 +133,7 @@ row.cpp / row.h: Defines the Row structure and contains the serialization/deseri
 🗺️ Project Roadmap
 This project is a work in progress. The next major milestones are:
 
-Splitting Internal Nodes: Currently, the program will exit if an internal node becomes full. The next step is to implement the logic to split internal nodes.
-
-Implementing Deletes: Add support for a delete command, which will involve removing key/value pairs and potentially merging nodes.
+Implementing Deletes: Add support for a delete command, which will involve removing key/value pairs and potentially merging or rebalancing nodes.
 
 B+ Tree Conversion: Evolve the B-Tree into a B+ Tree by adding sibling pointers to all leaf nodes. This will make full table scans much more efficient.
 

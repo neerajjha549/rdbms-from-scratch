@@ -9,15 +9,6 @@
 #include <unistd.h>
 #include <cerrno>
 
-/*
-The Pager
-What it is: The pager is responsible for reading and writing data to the database file in fixed-size chunks called pages (in our case, 4KB).
-
-Why we need it: Disk access is extremely slow compared to memory access. The pager's primary job is to minimize disk I/O by keeping recently used pages in an in-memory cache. When a part of the database is needed, the pager checks if the corresponding page is already in the cache. If it is, it's a "cache hit," and the data is returned instantly. If not (a "cache miss"), the pager reads the page from the disk into the cache before returning it.
-
-What it enables: This layer is the foundation upon which we will build our B-Tree index. The B-Tree will operate on pages, not raw bytes, and it will rely entirely on the pager to fetch and write the nodes of the tree.
-*/
-
 // Define fixed-size constants for our table schema.
 #define COLUMN_USERNAME_SIZE 32
 #define COLUMN_EMAIL_SIZE 255
@@ -50,6 +41,15 @@ void deserialize_row(const void* source, Row* destination) {
     memcpy(&(destination->username), (char*)source + USERNAME_OFFSET, USERNAME_SIZE);
     memcpy(&(destination->email), (char*)source + EMAIL_OFFSET, EMAIL_SIZE);
 }
+
+/*
+The Pager
+What it is: The pager is responsible for reading and writing data to the database file in fixed-size chunks called pages (in our case, 4KB).
+
+Why we need it: Disk access is extremely slow compared to memory access. The pager's primary job is to minimize disk I/O by keeping recently used pages in an in-memory cache. When a part of the database is needed, the pager checks if the corresponding page is already in the cache. If it is, it's a "cache hit," and the data is returned instantly. If not (a "cache miss"), the pager reads the page from the disk into the cache before returning it.
+
+What it enables: This layer is the foundation upon which we will build our B-Tree index. The B-Tree will operate on pages, not raw bytes, and it will rely entirely on the pager to fetch and write the nodes of the tree.
+*/
 
 // --- Pager Abstraction ---
 // Manages reading and writing pages to/from the database file.

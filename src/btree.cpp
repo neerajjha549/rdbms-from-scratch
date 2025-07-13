@@ -1,0 +1,159 @@
+#include "btree.h"
+#include "table.h"
+#include <iostream>
+#include <cstdlib>
+#include <cstring>
+
+void initialize_leaf_node(void* node) {
+    set_node_type(node, NODE_LEAF);
+    set_node_root(node, false);
+    *leaf_node_num_cells(node) = 0;
+}
+
+void initialize_internal_node(void* node) {
+    set_node_type(node, NODE_INTERNAL);
+    set_node_root(node, false);
+    *internal_node_num_keys(node) = 0;
+}
+
+uint32_t* internal_node_child(void* node, uint32_t child_num) {
+    uint32_t num_keys = *internal_node_num_keys(node);
+    if (child_num > num_keys) {
+        std::cerr << "Tried to access child_num " << child_num << " > num_keys " << num_keys << std::endl;
+        exit(EXIT_FAILURE);
+    } else if (child_num == num_keys) {
+        return internal_node_right_child(node);
+    } else {
+        return internal_node_cell(node, child_num);
+    }
+}
+
+uint32_t internal_node_find_child(void* node, uint32_t key) {
+    uint32_t num_keys = *internal_node_num_keys(node);
+
+    uint32_t min_index = 0;
+    uint32_t max_index = num_keys; 
+
+    while (min_index != max_index) {
+        uint32_t index = (min_index + max_index) / 2;
+        uint32_t key_to_right = *internal_node_key(node, index);
+        if (key_to_right >= key) {
+            max_index = index;
+        } else {
+            min_index = index + 1;
+        }
+    }
+    return min_index;
+}
+
+
+void create_new_root(Table* table, uint32_t right_child_page_num) {
+    void* root = get_page(table->pager, table->root_page_num);
+    uint32_t left_child_page_num = get_unused_page_num(table->pager);
+    void* left_child = get_page(table->pager, left_child_page_num);
+
+    memcpy(left_child, root, PAGE_SIZE);
+    set_node_root(left_child, false);
+
+    initialize_internal_node(root);
+    set_node_root(root, true);
+    *internal_node_num_keys(root) = 1;
+    *internal_node_child(root, 0) = left_child_page_num;
+    uint32_t left_child_max_key = *leaf_node_key(left_child, *leaf_node_num_cells(left_child) - 1);
+    *internal_node_key(root, 0) = left_child_max_key;
+    *internal_node_right_child(root) = right_child_page_num;
+}
+
+void leaf_node_split_and_insert(Cursor* cursor, uint32_t key, Row* value) {
+    Table* table = cursor->table;
+    void* old_node = get_page(table->pager, cursor->page_num);
+    uint32_t new_page_num = get_unused_page_num(table->pager);
+    void* new_node = get_page(table->pager, new_page_num);
+    initialize_leaf_node(new_node);
+
+    for (int32_t i = LEAF_NODE_MAX_CELLS; i >= 0; i--) {
+        void* destination_node;
+        if (i >= static_cast<int32_t>(LEAF_NODE_MAX_CELLS / 2)) {
+            destination_node = new_node;
+        } else {
+            destination_node = old_node;
+        }
+        uint32_t index_within_node = i % (LEAF_NODE_MAX_CELLS / 2);
+        void* destination = leaf_node_cell(destination_node, index_within_node);
+
+        if (i == (int32_t)cursor->cell_num) {
+            serialize_row(value, leaf_node_value(destination_node, index_within_node));
+            *leaf_node_key(destination_node, index_within_node) = key;
+        } else if (i > (int32_t)cursor->cell_num) {
+            memcpy(destination, leaf_node_cell(old_node, i - 1), LEAF_NODE_CELL_SIZE);
+        } else {
+            memcpy(destination, leaf_node_cell(old_node, i), LEAF_NODE_CELL_SIZE);
+        }
+    }
+
+    *(leaf_node_num_cells(old_node)) = LEAF_NODE_MAX_CELLS / 2;
+    *(leaf_node_num_cells(new_node)) = (LEAF_NODE_MAX_CELLS + 1) / 2;
+
+    if (is_node_root(old_node)) {
+        return create_new_root(table, new_page_num);
+    } else {
+        std::cout << "Need to implement updating parent after split" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+void leaf_node_insert(Cursor* cursor, uint32_t key, Row* value) {
+    void* node = get_page(cursor->table->pager, cursor->page_num);
+    uint32_t num_cells = *leaf_node_num_cells(node);
+
+    if (num_cells >= LEAF_NODE_MAX_CELLS) {
+        leaf_node_split_and_insert(cursor, key, value);
+        return;
+    }
+
+    if (cursor->cell_num < num_cells) {
+        for (uint32_t i = num_cells; i > cursor->cell_num; i--) {
+            memcpy(leaf_node_cell(node, i), leaf_node_cell(node, i - 1), LEAF_NODE_CELL_SIZE);
+        }
+    }
+
+    *(leaf_node_num_cells(node)) += 1;
+    *(leaf_node_key(node, cursor->cell_num)) = key;
+    serialize_row(value, leaf_node_value(node, cursor->cell_num));
+}
+
+void indent(uint32_t level) {
+    for (uint32_t i = 0; i < level; i++) {
+        std::cout << "  ";
+    }
+}
+
+void print_tree(Pager* pager, uint32_t page_num, uint32_t indentation_level) {
+    void* node = get_page(pager, page_num);
+    uint32_t num_keys, child;
+
+    switch (get_node_type(node)) {
+        case NODE_LEAF:
+            num_keys = *leaf_node_num_cells(node);
+            indent(indentation_level);
+            std::cout << "- leaf (size " << num_keys << ")" << std::endl;
+            for (uint32_t i = 0; i < num_keys; i++) {
+                indent(indentation_level + 1);
+                std::cout << "- " << *leaf_node_key(node, i) << std::endl;
+            }
+            break;
+        case NODE_INTERNAL:
+            num_keys = *internal_node_num_keys(node);
+            indent(indentation_level);
+            std::cout << "- internal (size " << num_keys << ")" << std::endl;
+            for (uint32_t i = 0; i < num_keys; i++) {
+                child = *internal_node_child(node, i);
+                print_tree(pager, child, indentation_level + 1);
+                indent(indentation_level + 1);
+                std::cout << "- key " << *internal_node_key(node, i) << std::endl;
+            }
+            child = *internal_node_right_child(node);
+            print_tree(pager, child, indentation_level + 1);
+            break;
+    }
+}

@@ -8,6 +8,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <cerrno>
+#include <sys/types.h>
+#include <sys/stat.h> // For file operations - compatibility with POSIX systems
 
 // Define fixed-size constants for our table schema.
 #define COLUMN_USERNAME_SIZE 32

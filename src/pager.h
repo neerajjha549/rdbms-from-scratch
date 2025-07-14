@@ -1,8 +1,8 @@
 #ifndef PAGER_H
 #define PAGER_H
 
-#include <string>
 #include "common.h"
+#include <sys/stat.h>
 
 struct Pager {
     int file_descriptor;

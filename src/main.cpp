@@ -1,21 +1,14 @@
-#include <iostream>
-#include <string>
-#include <vector>
-#include <cstring>
-#include <cstdint>
-#include <cstdlib>
-#include <cstdio>
-
+#include "common.h"
+#include "row.h"
 #include "table.h"
 #include "btree.h"
-#include "row.h"
 
 enum StatementType { STATEMENT_INSERT, STATEMENT_SELECT, STATEMENT_DELETE };
 
 struct Statement {
     StatementType type;
-    Row row_to_insert; // only used by insert statement
-    uint32_t id_to_delete; // only used by delete statement
+    Row row_to_insert;
+    uint32_t id_to_delete;
 };
 
 void print_prompt() {
@@ -31,10 +24,6 @@ void do_meta_command(const std::string& command, Table* table) {
         db_close(table);
         std::cout << "Bye!" << std::endl;
         exit(EXIT_SUCCESS);
-    } else if (command == ".constants") {
-        std::cout << "Constants:" << std::endl;
-        // You would need to implement print_constants() if you want to use it
-        // print_constants();
     } else if (command == ".btree") {
         std::cout << "Tree:" << std::endl;
         print_tree(table->pager, 0, 0);

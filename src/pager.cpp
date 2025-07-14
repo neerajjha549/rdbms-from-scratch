@@ -1,12 +1,4 @@
 #include "pager.h"
-#include <iostream>
-#include <fcntl.h>
-#include <unistd.h>
-#include <cerrno>
-#include <cstring>
-#include <cstdlib>
-#include <sys/types.h>
-#include <sys/stat.h>
 
 Pager* pager_open(const std::string& filename) {
     int fd = open(filename.c_str(), O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
@@ -54,7 +46,11 @@ void* get_page(Pager* pager, uint32_t page_num) {
                 std::cerr << "Error reading file: " << strerror(errno) << std::endl;
                 exit(EXIT_FAILURE);
             }
+        } else {
+            // This is a new page. Initialize it to all zeros.
+            memset(page, 0, PAGE_SIZE);
         }
+
         pager->pages[page_num] = page;
 
         if (page_num >= pager->num_pages) {

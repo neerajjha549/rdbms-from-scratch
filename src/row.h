@@ -1,8 +1,7 @@
 #ifndef ROW_H
 #define ROW_H
 
-#include <cstdint>
-#include <cstring>
+#include "common.h"
 
 // Define fixed-size constants for our table schema.
 #define COLUMN_USERNAME_SIZE 32
@@ -11,7 +10,6 @@
 // Row structure representing a single record in our 'users' table.
 struct Row {
     uint32_t id;
-    // +1 for the null terminator
     char username[COLUMN_USERNAME_SIZE + 1];
     char email[COLUMN_EMAIL_SIZE + 1];
 };
@@ -41,6 +39,5 @@ inline void deserialize_row(const void* source, Row* destination) {
     destination->username[COLUMN_USERNAME_SIZE] = '\0';
     destination->email[COLUMN_EMAIL_SIZE] = '\0';
 }
-
 
 #endif // ROW_H

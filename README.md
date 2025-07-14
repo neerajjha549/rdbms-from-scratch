@@ -1,6 +1,3 @@
-# ToyDB - rdbms-from-scratch
-The README is updated to reflect that the B-Tree has been converted to a B+ Tree, improving scan performance. The roadmap is adjusted accordingly.
-
 # ToyDB: A Simple B+ Tree Based Database from Scratch in C++
 
 Welcome to ToyDB! This is an educational project to build a simple, persistent, single-table database from the ground up in C++. The goal is to demystify how databases work by implementing the core components, starting with the storage engine.

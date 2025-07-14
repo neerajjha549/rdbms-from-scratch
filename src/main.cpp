@@ -2,13 +2,22 @@
 #include "row.h"
 #include "table.h"
 #include "btree.h"
-#include "tokenizer.h"
-#include "parser.h"
-#include "ast.h"
-#include "query_planner.h"
-#include "vm.h"
 
-void print_prompt() { std::cout << "db > "; }
+enum StatementType { STATEMENT_INSERT, STATEMENT_SELECT, STATEMENT_DELETE };
+
+struct Statement {
+    StatementType type;
+    Row row_to_insert;
+    uint32_t id_to_delete;
+};
+
+void print_prompt() {
+    std::cout << "db > ";
+}
+
+void print_row(const Row& row) {
+    std::cout << "(" << row.id << ", " << row.username << ", " << row.email << ")" << std::endl;
+}
 
 void print_constants() {
     std::cout << "ROW_SIZE: " << ROW_SIZE << std::endl;
@@ -17,6 +26,9 @@ void print_constants() {
     std::cout << "LEAF_NODE_CELL_SIZE: " << LEAF_NODE_CELL_SIZE << std::endl;
     std::cout << "LEAF_NODE_SPACE_FOR_CELLS: " << LEAF_NODE_SPACE_FOR_CELLS << std::endl;
     std::cout << "LEAF_NODE_MAX_CELLS: " << LEAF_NODE_MAX_CELLS << std::endl;
+    std::cout << "INTERNAL_NODE_HEADER_SIZE: " << INTERNAL_NODE_HEADER_SIZE << std::endl;
+    std::cout << "INTERNAL_NODE_CELL_SIZE: " << INTERNAL_NODE_CELL_SIZE << std::endl;
+    std::cout << "INTERNAL_NODE_MAX_CELLS: " << INTERNAL_NODE_MAX_CELLS << std::endl;
 }
 
 void do_meta_command(const std::string& command, Table* table) {
@@ -35,63 +47,58 @@ void do_meta_command(const std::string& command, Table* table) {
     }
 }
 
-// Prepares the statement by running it through the tokenizer and parser.
-std::unique_ptr<AstNode> prepare_statement(const std::string& input) {
-    try {
-        Tokenizer tokenizer(input);
-        std::vector<Token> tokens;
-        Token token;
-        do {
-            token = tokenizer.next_token();
-            if (token.type != TokenType::END_OF_FILE) {
-                 tokens.push_back(token);
-            }
-        } while (token.type != TokenType::END_OF_FILE);
-
-        if (tokens.empty()) {
-            return nullptr; // Not a statement, just empty input
+bool prepare_statement(const std::string& input, Statement* statement) {
+    if (input.rfind("insert", 0) == 0) {
+        statement->type = STATEMENT_INSERT;
+        int args_assigned = sscanf(input.c_str(), "insert %u %s %s",
+                                  &statement->row_to_insert.id,
+                                  statement->row_to_insert.username,
+                                  statement->row_to_insert.email);
+        if (args_assigned < 3) {
+            std::cout << "Syntax error. Could not parse statement." << std::endl;
+            return false;
         }
-
-        Parser parser(tokens);
-        return parser.parse();
-
-    } catch (const std::runtime_error& e) {
-        std::cout << e.what() << std::endl;
-        return nullptr;
+        return true;
     }
+    if (input == "select") {
+        statement->type = STATEMENT_SELECT;
+        return true;
+    }
+    if (input.rfind("delete", 0) == 0) {
+        statement->type = STATEMENT_DELETE;
+        int args_assigned = sscanf(input.c_str(), "delete %u", &statement->id_to_delete);
+        if (args_assigned < 1) {
+            std::cout << "Syntax error. Must provide an ID to delete." << std::endl;
+            return false;
+        }
+        return true;
+    }
+
+    std::cout << "Unrecognized keyword at start of '" << input << "'." << std::endl;
+    return false;
 }
 
-// Executes the statement by compiling the AST and running it on the VM.
-void execute_statement(std::unique_ptr<AstNode>& root_node, Table* table) {
-    if (!root_node) {
-        return; // Empty statement
-    }
-
-    try {
-        VirtualMachine vm(table);
-        std::vector<Bytecode> program = QueryPlanner::compile(root_node.get());
-
-        // Before execution, push operands onto the VM's stack based on the AST node type.
-        // This is the bridge between the AST (data) and the VM (logic).
-        switch (root_node->type()) {
-            case AstNodeType::INSERT_STATEMENT: {
-                auto* node = static_cast<InsertStatementNode*>(root_node.get());
-                vm.push_row(node->row_to_insert);
-                break;
+void execute_statement(Statement* statement, Table* table) {
+    switch (statement->type) {
+        case STATEMENT_INSERT:
+            table_insert(table, &(statement->row_to_insert));
+            break;
+        case STATEMENT_SELECT:
+            {
+                Cursor* cursor = table_start(table);
+                Row row;
+                while (!(cursor->end_of_table)) {
+                    deserialize_row(cursor_value(cursor), &row);
+                    print_row(row);
+                    cursor_advance(cursor);
+                }
+                delete cursor;
+                std::cout << "Executed." << std::endl;
             }
-            case AstNodeType::DELETE_STATEMENT: {
-                auto* node = static_cast<DeleteStatementNode*>(root_node.get());
-                vm.push_int(node->id_to_delete);
-                break;
-            }
-            case AstNodeType::SELECT_STATEMENT:
-                // No operands to push
-                break;
-        }
-
-        vm.execute(program);
-    } catch(const std::runtime_error& e) {
-        std::cout << "Execution Error: " << e.what() << std::endl;
+            break;
+        case STATEMENT_DELETE:
+            table_delete(table, statement->id_to_delete);
+            break;
     }
 }
 
@@ -118,10 +125,11 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        std::unique_ptr<AstNode> ast_root = prepare_statement(input_line);
-        if (ast_root) {
-            execute_statement(ast_root, table);
+        Statement statement;
+        if (prepare_statement(input_line, &statement)) {
+            execute_statement(&statement, table);
         }
     }
+
     return 0;
 }

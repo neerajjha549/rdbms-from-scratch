@@ -10,11 +10,13 @@ This project is inspired by and follows the excellent tutorial at [cstack.github
     
 -   **REPL Interface**: A simple Read-Eval-Print-Loop for interacting with the database.
     
--   **B+ Tree for Indexing**: Data is stored and indexed in a B+ Tree structure.
+-   **Feature-Complete B+ Tree for Indexing**: Data is stored and indexed in a robust B+ Tree structure.
     
     -   All leaf nodes are linked sequentially, allowing for highly efficient full-table scans.
         
-    -   The tree supports splitting leaf and internal nodes recursively up to the root.
+    -   Supports splitting leaf and internal nodes recursively up to the root.
+        
+    -   Supports deletion with node merging and rebalancing to maintain tree structure and performance.
         
 -   **Basic CRUD Operations**:
     
@@ -22,7 +24,7 @@ This project is inspired by and follows the excellent tutorial at [cstack.github
         
     -   `select` (performs an efficient scan across the leaf nodes)
         
-    -   `delete <id>` (removes a key; does not yet merge nodes)
+    -   `delete <id>` (removes a key and rebalances the tree if necessary)
         
 -   **Meta-Commands**:
     
@@ -31,7 +33,6 @@ This project is inspired by and follows the excellent tutorial at [cstack.github
     -   `.constants`: To print internal layout constants.
         
     -   `.btree`: To print a visualization of the B-Tree structure.
-        
 
 ## 🛠️ Building the Database
 
@@ -114,17 +115,17 @@ Executed.
     
 -   **`table.cpp` / `table.h`**: Provides a high-level API for interacting with the data (`Table` and `Cursor`).
     
--   **`btree.cpp` / `btree.h`**: The heart of the storage engine. Contains the logic for the B+ Tree data structure, including node layout, searching, insertion, splitting, and deleting.
+-   **`btree.cpp` / `btree.h`**: The heart of the storage engine. Contains the logic for the B+ Tree data structure.
     
 -   **`row.cpp` / `row.h`**: Defines the `Row` structure and its serialization/deserialization logic.
     
 
 ## 🗺️ Project Roadmap
 
-This project is a work in progress. The next major milestones are:
+The B+ Tree storage engine is now functionally complete. The next major phases involve building the layers on top of it to turn it into a true RDBMS.
 
-1.  **Deletion with Rebalancing**: Implement node merging and rebalancing when a deletion causes a node to become under-utilized. This is the final piece of core B+ Tree functionality.
+1.  **SQL Compiler**: Implement a proper SQL front-end with a parser (using Flex/Bison) and a query planner.
     
-2.  **SQL Compiler**: Implement a proper SQL front-end with a parser (using Flex/Bison) and a query planner.
+2.  **Transaction Management**: Add ACID compliance through a Write-Ahead Log (WAL) for durability and concurrency control mechanisms like MVCC.
     
-3.  **Transaction Management**: Add ACID compliance through a Write-Ahead Log (WAL) for durability and concurrency control mechanisms like MVCC.
+3.  **Data Types & Catalogs**: Move beyond a single, hard-coded table structure to support multiple tables, different data types, and a system catalog (`information_schema`).

@@ -19,6 +19,18 @@ void print_row(const Row& row) {
     std::cout << "(" << row.id << ", " << row.username << ", " << row.email << ")" << std::endl;
 }
 
+void print_constants() {
+    std::cout << "ROW_SIZE: " << ROW_SIZE << std::endl;
+    std::cout << "COMMON_NODE_HEADER_SIZE: " << COMMON_NODE_HEADER_SIZE << std::endl;
+    std::cout << "LEAF_NODE_HEADER_SIZE: " << LEAF_NODE_HEADER_SIZE << std::endl;
+    std::cout << "LEAF_NODE_CELL_SIZE: " << LEAF_NODE_CELL_SIZE << std::endl;
+    std::cout << "LEAF_NODE_SPACE_FOR_CELLS: " << LEAF_NODE_SPACE_FOR_CELLS << std::endl;
+    std::cout << "LEAF_NODE_MAX_CELLS: " << LEAF_NODE_MAX_CELLS << std::endl;
+    std::cout << "INTERNAL_NODE_HEADER_SIZE: " << INTERNAL_NODE_HEADER_SIZE << std::endl;
+    std::cout << "INTERNAL_NODE_CELL_SIZE: " << INTERNAL_NODE_CELL_SIZE << std::endl;
+    std::cout << "INTERNAL_NODE_MAX_CELLS: " << INTERNAL_NODE_MAX_CELLS << std::endl;
+}
+
 void do_meta_command(const std::string& command, Table* table) {
     if (command == ".exit") {
         db_close(table);
@@ -26,7 +38,10 @@ void do_meta_command(const std::string& command, Table* table) {
         exit(EXIT_SUCCESS);
     } else if (command == ".btree") {
         std::cout << "Tree:" << std::endl;
-        print_tree(table->pager, 0, 0);
+        print_tree(table->pager, table->root_page_num, 0);
+    } else if (command == ".constants") {
+        std::cout << "Constants:" << std::endl;
+        print_constants();
     } else {
         std::cout << "Unrecognized command '" << command << "'" << std::endl;
     }
@@ -63,67 +78,26 @@ bool prepare_statement(const std::string& input, Statement* statement) {
     return false;
 }
 
-void execute_insert(Statement* statement, Table* table) {
-    Row* row_to_insert = &(statement->row_to_insert);
-    uint32_t key_to_insert = row_to_insert->id;
-    Cursor* cursor = table_find(table, key_to_insert);
-
-    void* node = get_page(table->pager, cursor->page_num);
-    uint32_t num_cells = *leaf_node_num_cells(node);
-
-    if (cursor->cell_num < num_cells) {
-        uint32_t key_at_index = *leaf_node_key(node, cursor->cell_num);
-        if (key_at_index == key_to_insert) {
-            std::cout << "Error: Duplicate key." << std::endl;
-            delete cursor;
-            return;
-        }
-    }
-
-    leaf_node_insert(cursor, row_to_insert->id, row_to_insert);
-    delete cursor;
-    std::cout << "Executed." << std::endl;
-}
-
-void execute_select(Statement* statement, Table* table) {
-    Cursor* cursor = table_start(table);
-    Row row;
-
-    while (!(cursor->end_of_table)) {
-        deserialize_row(cursor_value(cursor), &row);
-        print_row(row);
-        cursor_advance(cursor);
-    }
-
-    delete cursor;
-    std::cout << "Executed." << std::endl;
-}
-
-void execute_delete(Statement* statement, Table* table) {
-    uint32_t key_to_delete = statement->id_to_delete;
-    Cursor* cursor = table_find(table, key_to_delete);
-    void* node = get_page(table->pager, cursor->page_num);
-
-    if (*leaf_node_num_cells(node) > cursor->cell_num && *leaf_node_key(node, cursor->cell_num) == key_to_delete) {
-        leaf_node_delete(cursor);
-        std::cout << "Executed." << std::endl;
-    } else {
-        std::cout << "Error: Key " << key_to_delete << " not found." << std::endl;
-    }
-    delete cursor;
-}
-
-
 void execute_statement(Statement* statement, Table* table) {
     switch (statement->type) {
         case STATEMENT_INSERT:
-            execute_insert(statement, table);
+            table_insert(table, &(statement->row_to_insert));
             break;
         case STATEMENT_SELECT:
-            execute_select(statement, table);
+            {
+                Cursor* cursor = table_start(table);
+                Row row;
+                while (!(cursor->end_of_table)) {
+                    deserialize_row(cursor_value(cursor), &row);
+                    print_row(row);
+                    cursor_advance(cursor);
+                }
+                delete cursor;
+                std::cout << "Executed." << std::endl;
+            }
             break;
         case STATEMENT_DELETE:
-            execute_delete(statement, table);
+            table_delete(table, statement->id_to_delete);
             break;
     }
 }

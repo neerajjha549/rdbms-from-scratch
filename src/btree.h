@@ -1,9 +1,11 @@
 #ifndef BTREE_H
 #define BTREE_H
 
-#include "row.h"
 #include "pager.h"
-#include "table.h"
+#include "row.h"
+
+// Forward declaration to break circular dependency
+struct Table;
 
 // --- B-Tree Node Representation ---
 enum NodeType { NODE_INTERNAL, NODE_LEAF };
@@ -45,6 +47,15 @@ const uint32_t LEAF_NODE_VALUE_OFFSET = LEAF_NODE_KEY_OFFSET + LEAF_NODE_KEY_SIZ
 const uint32_t LEAF_NODE_CELL_SIZE = LEAF_NODE_KEY_SIZE + LEAF_NODE_VALUE_SIZE;
 const uint32_t LEAF_NODE_SPACE_FOR_CELLS = PAGE_SIZE - LEAF_NODE_HEADER_SIZE;
 const uint32_t LEAF_NODE_MAX_CELLS = LEAF_NODE_SPACE_FOR_CELLS / LEAF_NODE_CELL_SIZE;
+const uint32_t LEAF_NODE_MIN_CELLS = LEAF_NODE_MAX_CELLS / 2;
+
+
+// --- B-Tree Function Declarations ---
+void initialize_leaf_node(void* node);
+void initialize_internal_node(void* node);
+void leaf_node_insert(Table* table, uint32_t page_num, uint32_t cell_num, uint32_t key, Row* value);
+void btree_delete(Table* table, uint32_t page_num, uint32_t cell_num, uint32_t key);
+void print_tree(Pager* pager, uint32_t page_num, uint32_t indentation_level);
 
 
 // --- Accessor Functions (inline for performance) ---
@@ -91,17 +102,15 @@ inline uint32_t* internal_node_cell(void* node, uint32_t cell_num) {
 inline uint32_t* internal_node_key(void* node, uint32_t key_num) {
     return (uint32_t*)((char*)internal_node_cell(node, key_num) + INTERNAL_NODE_CHILD_SIZE);
 }
-uint32_t* internal_node_child(void* node, uint32_t child_num);
-
-void initialize_leaf_node(void* node);
-void initialize_internal_node(void* node);
-void leaf_node_insert(Cursor* cursor, uint32_t key, Row* value);
-void leaf_node_delete(Cursor* cursor);
-void print_tree(Pager* pager, uint32_t page_num, uint32_t indentation_level);
-void create_new_root(Table* table, uint32_t right_child_page_num);
-uint32_t internal_node_find_child(void* node, uint32_t key);
-uint32_t get_node_max_key(Pager* pager, void* node);
-void internal_node_insert(Table* table, uint32_t parent_page_num, uint32_t child_page_num);
-void update_internal_node_key(void* node, uint32_t old_key, uint32_t new_key);
-
+inline uint32_t* internal_node_child(void* node, uint32_t child_num) {
+    uint32_t num_keys = *internal_node_num_keys(node);
+    if (child_num > num_keys) {
+        std::cerr << "Tried to access child_num " << child_num << " > num_keys " << num_keys << std::endl;
+        exit(EXIT_FAILURE);
+    } else if (child_num == num_keys) {
+        return internal_node_right_child(node);
+    } else {
+        return (uint32_t*)internal_node_cell(node, child_num);
+    }
+}
 #endif // BTREE_H

@@ -106,6 +106,7 @@ uint32_t* internal_node_child(void* node, uint32_t child_num);
 void initialize_leaf_node(void* node);
 void initialize_internal_node(void* node);
 void leaf_node_insert(Cursor* cursor, uint32_t key, Row* value);
+void leaf_node_delete(Cursor* cursor);
 void print_tree(Pager* pager, uint32_t page_num, uint32_t indentation_level);
 void create_new_root(Table* table, uint32_t right_child_page_num);
 uint32_t internal_node_find_child(void* node, uint32_t key);

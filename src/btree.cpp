@@ -226,6 +226,21 @@ void leaf_node_insert(Cursor* cursor, uint32_t key, Row* value) {
     serialize_row(value, leaf_node_value(node, cursor->cell_num));
 }
 
+void leaf_node_delete(Cursor* cursor) {
+    void* node = get_page(cursor->table->pager, cursor->page_num);
+    uint32_t num_cells = *leaf_node_num_cells(node);
+    uint32_t cell_to_delete = cursor->cell_num;
+
+    // Shift cells to the left to overwrite the deleted cell
+    for (uint32_t i = cell_to_delete; i < num_cells - 1; i++) {
+        memcpy(leaf_node_cell(node, i), leaf_node_cell(node, i + 1), LEAF_NODE_CELL_SIZE);
+    }
+
+    // Decrement the number of cells in the node
+    *(leaf_node_num_cells(node)) -= 1;
+}
+
+
 void indent(uint32_t level) {
     for (uint32_t i = 0; i < level; i++) {
         std::cout << "  ";

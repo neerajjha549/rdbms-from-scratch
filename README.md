@@ -6,19 +6,13 @@ This project is inspired by and follows the excellent tutorial at [cstack.github
 
 ## 🌟 Current Features
 
--   **Persistent Storage**: All data is saved to a binary file and reloaded on startup.
-    
--   **REPL Interface**: A simple Read-Eval-Print-Loop for interacting with the database.
-    
--   **Feature-Complete B+ Tree for Indexing**: Data is stored and indexed in a robust B+ Tree structure.
-    
-    -   All leaf nodes are linked sequentially, allowing for highly efficient full-table scans.
-        
-    -   Supports splitting leaf and internal nodes recursively up to the root.
-        
-    -   Supports deletion with node merging and rebalancing to maintain tree structure and performance.
-        
--   **Basic CRUD Operations**:
+* **Persistent Storage**: All data is saved to a binary file and reloaded on startup.
+* **REPL Interface**: A simple Read-Eval-Print-Loop for interacting with the database.
+* **Query Planner & Virtual Machine**: The database now compiles SQL into a custom bytecode format and executes it on a stack-based virtual machine.
+* **SQL Parser & AST**: The database has a recursive descent parser that builds an Abstract Syntax Tree.
+* **SQL Tokenizer**: Handles lexical analysis, breaking a raw SQL string into tokens.
+* **Feature-Complete B+ Tree**: Data is stored and indexed in a B+ Tree, supporting efficient insertion, searching, and deletion with node splitting and merging.
+* **Basic CRUD Operations**:
     
     -   `insert <id> <username> <email>`
         
@@ -26,7 +20,7 @@ This project is inspired by and follows the excellent tutorial at [cstack.github
         
     -   `delete <id>` (removes a key and rebalances the tree if necessary)
         
--   **Meta-Commands**:
+* **Meta-Commands**:
     
     -   `.exit`: To exit the application and save the database file.
         
@@ -106,26 +100,24 @@ db > delete 1
 Executed.
 
 ```
-
 ## 🏗️ Architecture Overview
 
--   **`main.cpp`**: Contains the REPL and handles parsing user input.
-    
--   **`pager.cpp` / `pager.h`**: Manages reading and writing pages of data from the database file to memory.
-    
--   **`table.cpp` / `table.h`**: Provides a high-level API for interacting with the data (`Table` and `Cursor`).
-    
--   **`btree.cpp` / `btree.h`**: The heart of the storage engine. Contains the logic for the B+ Tree data structure.
-    
--   **`row.cpp` / `row.h`**: Defines the `Row` structure and its serialization/deserialization logic.
-    
+The query lifecycle is now: `Input String` -> `Tokenizer` -> `Parser (AST)` -> `Query Planner (Bytecode)` -> `Virtual Machine (Execution)`.
+
+* **`main.cpp`**: Orchestrates the tokenizing, parsing, planning, and execution pipeline.
+* **`vm.cpp` / `vm.h`**: A stack-based virtual machine that executes bytecode.
+* **`query_planner.cpp` / `query_planner.h`**: Compiles the AST into a bytecode program for the VM.
+* **`parser.cpp` / `parser.h`**: Builds an Abstract Syntax Tree (AST) from a stream of tokens.
+* **`ast.h`**: Defines the data structures for the AST.
+* **`tokenizer.cpp` / `tokenizer.h`**: Handles lexical analysis.
+* **`pager.cpp` / `pager.h`**: Manages reading and writing pages of data.
+* **`table.cpp` / `table.h`**: Provides the high-level API for data operations.
+* **`btree.cpp` / `btree.h`**: The B+ Tree storage engine implementation.
+* **`row.h`**: Defines the `Row` structure and serialization.
+* **`common.h`**: Contains common includes and project-wide constants.
 
 ## 🗺️ Project Roadmap
 
-The B+ Tree storage engine is now functionally complete. The next major phases involve building the layers on top of it to turn it into a true RDBMS.
-
-1.  **SQL Compiler**: Implement a proper SQL front-end with a parser (using Flex/Bison) and a query planner.
-    
-2.  **Transaction Management**: Add ACID compliance through a Write-Ahead Log (WAL) for durability and concurrency control mechanisms like MVCC.
-    
-3.  **Data Types & Catalogs**: Move beyond a single, hard-coded table structure to support multiple tables, different data types, and a system catalog (`information_schema`).
+We are building the final layers of the database.
+1.  **Transaction Management**: Add ACID compliance through a Write-Ahead Log (WAL) and concurrency control.
+2.  **Data Types & Catalogs**: Move beyond a single, hard-coded table structure to support multiple tables, schemas, and data types.
